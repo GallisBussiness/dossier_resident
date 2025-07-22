@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
+import { generateDossierPDF } from '../utils/pdfGenerator';
 import {
   Layout,
   Typography,
@@ -23,7 +24,10 @@ import {
   Form,
   Input,
   Select,
-  Popconfirm
+  Popconfirm,
+  InputNumber,
+  Tabs,
+  DatePicker
 } from 'antd';
 import {
   RollbackOutlined,
@@ -39,17 +43,27 @@ import {
   DollarOutlined,
   PlusOutlined,
   EditOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  ToolOutlined
 } from '@ant-design/icons';
 import { getDossierById, deleteDossier } from '../services/dossier';
 import { getEtudiantByNcs } from '../services/etudiant';
 import { getPayementsByDossierId, createPayement, updatePayement, deletePayement } from '../services/payement';
+import { getAllocationDossierById, createAllocationMateriel, updateAllocationMateriel, deleteAllocationMateriel } from '../services/allocation';
 import type { Pavillon } from '../types/pavillon';
 import { Mois, PayementStatut } from '../types/payement';
 import type { Payement, CreatePayement, UpdatePayement } from '../types/payement';
+import { AllocationStatut } from '../types/allocation_materiel';
+import type { AllocationMateriel, CreateAllocationMateriel, UpdateAllocationMateriel } from '../types/allocation_materiel';
+import dayjs from 'dayjs';
 
 // Extend Payement interface to include _id property
 interface PayementWithId extends Payement {
+  _id?: string;
+}
+
+// Extend AllocationMateriel interface to include _id property
+interface AllocationMaterielWithId extends AllocationMateriel {
   _id?: string;
 }
 
@@ -66,6 +80,11 @@ export default function DossierDetail() {
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PayementWithId | null>(null);
   const [form] = Form.useForm();
+  
+  // State for allocation form modal
+  const [isAllocationModalVisible, setIsAllocationModalVisible] = useState(false);
+  const [editingAllocation, setEditingAllocation] = useState<AllocationMaterielWithId | null>(null);
+  const [allocationForm] = Form.useForm();
 
   // Fetch dossier data
   const { data: dossier, isLoading } = useQuery({
@@ -80,6 +99,14 @@ export default function DossierDetail() {
     queryFn: () => id ? getPayementsByDossierId(id) : Promise.reject('ID non fourni'),
     enabled: !!id
   });
+  
+  // Fetch allocations for this dossier
+  const { data: allocations = [], isLoading: isLoadingAllocations } = useQuery<AllocationMaterielWithId[]>({
+    queryKey: ['allocations', id],
+    queryFn: () => id ? getAllocationDossierById(id) : Promise.reject('ID non fourni'),
+    enabled: !!id
+  });
+  
 
   // Fetch related data once dossier is loaded
   const { data: etudiant } = useQuery({
@@ -128,6 +155,49 @@ export default function DossierDetail() {
       messageApi.error('Erreur lors de la suppression du paiement');
     }
   });
+  
+  // Mutations for allocations
+  const createAllocationMutation = useMutation({
+    mutationFn: (newAllocation: CreateAllocationMateriel) => createAllocationMateriel(newAllocation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allocations', id] });
+      queryClient.invalidateQueries({ queryKey: ['allocationStats', id] });
+      messageApi.success('Allocation enregistrée avec succès');
+      setIsAllocationModalVisible(false);
+      allocationForm.resetFields();
+    },
+    onError: () => {
+      messageApi.error('Erreur lors de l\'enregistrement de l\'allocation');
+    }
+  });
+
+  const updateAllocationMutation = useMutation({
+    mutationFn: ({ id, allocation }: { id: string; allocation: UpdateAllocationMateriel }) => 
+      updateAllocationMateriel(id, allocation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allocations', id] });
+      queryClient.invalidateQueries({ queryKey: ['allocationStats', id] });
+      messageApi.success('Allocation mise à jour avec succès');
+      setIsAllocationModalVisible(false);
+      setEditingAllocation(null);
+      allocationForm.resetFields();
+    },
+    onError: () => {
+      messageApi.error('Erreur lors de la mise à jour de l\'allocation');
+    }
+  });
+
+  const deleteAllocationMutation = useMutation({
+    mutationFn: (allocationId: string) => deleteAllocationMateriel(allocationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allocations', id] });
+      queryClient.invalidateQueries({ queryKey: ['allocationStats', id] });
+      messageApi.success('Allocation supprimée avec succès');
+    },
+    onError: () => {
+      messageApi.error('Erreur lors de la suppression de l\'allocation');
+    }
+  });
 
   // Handle payment form submission
   const handlePaymentSubmit = (values: CreatePayement) => {
@@ -158,6 +228,50 @@ export default function DossierDetail() {
     });
     setIsPaymentModalVisible(true);
   };
+  
+  // Handle allocation form submission
+  const handleAllocationSubmit = (values: CreateAllocationMateriel) => {
+    const { date, ...rest } = values;
+    const allocationData = {
+      ...rest,
+      dossierId: id as string,
+      date: dayjs(date).toDate()
+    };
+  
+    if (editingAllocation && editingAllocation._id) {
+      updateAllocationMutation.mutate({
+        id: editingAllocation._id,
+        allocation: allocationData
+      });
+    } else {
+      createAllocationMutation.mutate(allocationData);
+    }
+  };
+  
+  // Handle allocation edit
+  const handleEditAllocation = (allocation: AllocationMaterielWithId) => {
+    setEditingAllocation(allocation);
+    allocationForm.setFieldsValue({
+      nom: allocation.nom,
+      nombre: allocation.nombre,
+      description: allocation.description,
+      etat: allocation.etat,
+      date: dayjs(allocation.date)
+    });
+    setIsAllocationModalVisible(true);
+  };
+  
+  // Get allocation status color
+  const getAllocationStatusColor = (status: AllocationStatut) => {
+    switch (status) {
+      case AllocationStatut.NEUF:
+        return 'success';
+      case AllocationStatut.DETERIORE:
+        return 'warning';
+      default:
+        return 'default';
+    }
+  };
 
   // Get payment status color
   const getPaymentStatusColor = (status: PayementStatut) => {
@@ -187,6 +301,7 @@ export default function DossierDetail() {
     
     return { total, paid, pending, canceled, totalAmount, paidAmount };
   }, [payments]);
+  
 
   const handleDelete = () => {
     if (!id) return;
@@ -202,6 +317,20 @@ export default function DossierDetail() {
 
   const handleBack = () => {
     navigate('/dashboard/dossiers');
+  };
+  
+  // Fonction pour générer et ouvrir le PDF du dossier
+  const handlePrintDossier = () => {
+    if (!dossier || !etudiant) {
+      messageApi.error('Impossible de générer le PDF: données manquantes');
+      return;
+    }
+    
+    // Générer le PDF avec l'utilitaire
+    const pdfDoc = generateDossierPDF(dossier, etudiant, payments, paymentStats);
+    
+    // Ouvrir le PDF dans une nouvelle fenêtre
+    pdfDoc.open({}, window);
   };
 
   if (isLoading) {
@@ -259,7 +388,7 @@ export default function DossierDetail() {
         </div>
         <Space size="middle">
           <Button icon={<RollbackOutlined />} onClick={handleBack}>Retour</Button>
-          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>Imprimer</Button>
+          <Button icon={<PrinterOutlined />} onClick={handlePrintDossier}>Imprimer</Button>
           <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>Supprimer</Button>
         </Space>
       </div>
@@ -352,16 +481,26 @@ export default function DossierDetail() {
               <Text type="secondary">Informations de la chambre non disponibles</Text>
             )}
           </Card>
-          <Card
-            title={<Space><DollarOutlined /> Suivi des paiements</Space>}
-            className="card-shadow"
-            style={{ marginBottom: '24px' }}
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => {
-              setEditingPayment(null);
-              form.resetFields();
-              setIsPaymentModalVisible(true);
-            }}>Nouveau paiement</Button>}
-          >
+          <Tabs defaultActiveKey="payments" items={[
+            {
+              key: 'payments',
+              label: (
+                <span>
+                  <DollarOutlined />
+                  Suivi des paiements
+                </span>
+              ),
+              children: (
+                <Card
+                  className="card-shadow"
+                  style={{ marginBottom: '24px' }}
+                  extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => {
+                    setEditingPayment(null);
+                    form.resetFields();
+                    setIsPaymentModalVisible(true);
+                  }}>Nouveau paiement</Button>}
+                  bordered={false}
+                >
             <Spin spinning={isLoadingPayments}>
               {payments.length > 0 ? (
                 <Table
@@ -421,7 +560,90 @@ export default function DossierDetail() {
                 </div>
               )}
             </Spin>
-          </Card>
+                </Card>
+              ),
+            },
+            {
+              key: 'allocations',
+              label: (
+                <span>
+                  <ToolOutlined />
+                  Allocations de matériel
+                </span>
+              ),
+              children: (
+                <Card
+                  className="card-shadow"
+                  style={{ marginBottom: '24px' }}
+                  extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => {
+                    setEditingAllocation(null);
+                    allocationForm.resetFields();
+                    setIsAllocationModalVisible(true);
+                  }}>Nouvelle allocation</Button>}
+                  bordered={false}
+                >
+                  <Spin spinning={isLoadingAllocations}>
+                    {allocations.length > 0 ? (
+                      <Table
+                        dataSource={allocations as AllocationMaterielWithId[]}
+                        rowKey="_id"
+                        pagination={false}
+                        size="small"
+                      >
+                        <Table.Column title="Date" dataIndex="date" key="date" 
+                          render={(date) => new Date(date).toLocaleDateString('fr-FR')}
+                        />
+                        <Table.Column title="Matériel" dataIndex="nom" key="nom" />
+                        <Table.Column title="Quantité" dataIndex="nombre" key="nombre" />
+                        <Table.Column 
+                          title="État" 
+                          dataIndex="etat" 
+                          key="etat"
+                          render={(etat) => (
+                            <Tag color={getAllocationStatusColor(etat)}>
+                              {etat}
+                            </Tag>
+                          )}
+                        />
+                        <Table.Column 
+                          title="Description" 
+                          dataIndex="description" 
+                          key="description" 
+                          ellipsis={true}
+                        />
+                        <Table.Column
+                          title="Actions"
+                          key="actions"
+                          render={(_, record: AllocationMaterielWithId) => (
+                            <Space>
+                              <Button 
+                                type="text" 
+                                icon={<EditOutlined />} 
+                                onClick={() => handleEditAllocation(record)}
+                              />
+                              <Popconfirm
+                                title="Êtes-vous sûr de vouloir supprimer cette allocation ?"
+                                onConfirm={() => deleteAllocationMutation.mutate(record._id as string)}
+                                okText="Oui"
+                                cancelText="Non"
+                                icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
+                              >
+                                <Button type="text" danger icon={<DeleteOutlined />} />
+                              </Popconfirm>
+                            </Space>
+                          )}
+                        />
+                      </Table>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '20px' }}>
+                        <Text type="secondary">Aucune allocation enregistrée</Text>
+                      </div>
+                    )}
+                  </Spin>
+                </Card>
+              ),
+            },
+          ]} />
         </Col>
         
         {/* Right column - Summary and stats */}
@@ -482,8 +704,6 @@ export default function DossierDetail() {
           </Card>
           
           {/* Payment tracking card */}
-        
-          
           <Card 
             title={<Space><HistoryOutlined /> Historique du dossier</Space>} 
             className="card-shadow"
@@ -506,7 +726,7 @@ export default function DossierDetail() {
                     <>
                       <Text strong>Attribution de la chambre</Text>
                       <br />
-                      <Text type="secondary">{new Date(dossier.updatedAt as string).toLocaleDateString()}</Text>
+                      <Text type="secondary">{new Date(dossier.createdAt as string).toLocaleDateString()}</Text>
                     </>
                   ),
                 },
@@ -597,6 +817,84 @@ export default function DossierDetail() {
               </Button>
               <Button type="primary" htmlType="submit" loading={createPayementMutation.isPending || updatePayementMutation.isPending}>
                 {editingPayment ? 'Mettre à jour' : 'Enregistrer'}
+              </Button>
+            </div>
+          </Form.Item>
+        </Form>
+      </Modal>
+      
+      {/* Allocation Form Modal */}
+      <Modal
+        title={editingAllocation ? 'Modifier l\'allocation' : 'Nouvelle allocation'}
+        open={isAllocationModalVisible}
+        onCancel={() => {
+          setIsAllocationModalVisible(false);
+          setEditingAllocation(null);
+          allocationForm.resetFields();
+        }}
+        footer={null}
+      >
+        <Form
+          form={allocationForm}
+          layout="vertical"
+          onFinish={handleAllocationSubmit}
+          initialValues={{
+            etat: AllocationStatut.NEUF,
+            nombre: 1
+          }}
+        >
+          <Form.Item
+            name="nom"
+            label="Nom du matériel"
+            rules={[{ required: true, message: 'Veuillez saisir le nom du matériel' }]}
+          >
+            <Input />
+          </Form.Item>
+          
+          <Form.Item
+            name="nombre"
+            label="Quantité"
+            rules={[{ required: true, message: 'Veuillez saisir la quantité' }]}
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="date"
+            label="Date d'allocation"
+            rules={[{ required: true, message: 'Veuillez sélectionner la date' }]}
+          >
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="Description"
+          >
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          
+          <Form.Item
+            name="etat"
+            label="État"
+            rules={[{ required: true, message: 'Veuillez sélectionner l\'état' }]}
+          >
+            <Select>
+              {Object.values(AllocationStatut).map(etat => (
+                <Select.Option key={etat} value={etat}>{etat}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          
+          <Form.Item>
+            <div style={{ textAlign: 'right' }}>
+              <Button style={{ marginRight: 8 }} onClick={() => {
+                setIsAllocationModalVisible(false);
+                setEditingAllocation(null);
+                allocationForm.resetFields();
+              }}>
+                Annuler
+              </Button>
+              <Button type="primary" htmlType="submit" loading={createAllocationMutation.isPending || updateAllocationMutation.isPending}>
+                {editingAllocation ? 'Mettre à jour' : 'Enregistrer'}
               </Button>
             </div>
           </Form.Item>

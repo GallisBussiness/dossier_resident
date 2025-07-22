@@ -1,6 +1,7 @@
 import type { Chambre } from "./chambre";
 import type { AnneeUniversitaire } from "./annee_universitaire";
-
+import type { Etudiant } from "./etudiant";
+    
 export interface Dossier {
 
     _id?:string;
@@ -22,6 +23,8 @@ export interface Dossier {
     createdAt?:string;
 
     updatedAt?:string;
+
+    etudiant?:Etudiant;
 }
 
 export interface CreateDossier {

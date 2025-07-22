@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Layout,
   Typography,
@@ -10,7 +10,8 @@ import {
   Form,
   Select,
   message,
-  Spin
+  Spin,
+  Tag
 } from 'antd';
 import {
   UserOutlined,
@@ -18,76 +19,100 @@ import {
   SearchOutlined,
   EditOutlined,
   DeleteOutlined,
-  LockOutlined
+  LockOutlined,
+  KeyOutlined
 } from '@ant-design/icons';
-import type { User } from '../types/user';
+import type { User, CreateUser, UpdateUser } from '../types/user';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getUsers, createUser, updateUser, deleteUser } from '../services/user';
+import useAuthUser from 'react-auth-kit/hooks/useAuthUser';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 
-const defaultUser: User = {
+const defaultUser: CreateUser = {
   prenom: '',
   nom: '',
   email: '',
-  isActif: true,
-  role: ['user'],
+  password: ''
 };
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
-  const [currentUser, setCurrentUser] = useState<User>(defaultUser);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [resetPasswordForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // Simuler le chargement des données
-    const fetchData = async () => {
-      try {
-        setTimeout(() => {
-          const mockUsers: User[] = [
-            {
-              _id: '1',
-              prenom: 'admin',
-              nom: 'admin',
-              email: 'admin@example.com',
-              role: ['admin'],
-              isActif: true,
-            },
-            {
-              _id: '2',
-              prenom: 'manager',
-              nom: 'manager',
-              email: 'manager@example.com',
-              role: ['manager'],
-              isActif: true,
-            },
-            {
-              _id: '3',
-              prenom: 'operator',
-              nom: 'operator',
-              email: 'operator@example.com',
-              role: ['user'],
-              isActif: true,
-            }
-          ];
-          setUsers(mockUsers);
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs', error);
-        messageApi.error('Erreur lors du chargement des utilisateurs');
-        setLoading(false);
-      }
-    };
+  const {id} = useAuthUser() as {id: string};
 
-    fetchData();
-  }, [messageApi]);
+  // Requête pour récupérer la liste des utilisateurs
+  const { data: users = [], isLoading } = useQuery<User[]>({
+    queryKey: ['users'],
+    queryFn: getUsers
+  });
+
+  // Mutation pour créer un nouvel utilisateur
+  const createUserMutation = useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      messageApi.success('Utilisateur ajouté avec succès');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      handleCancel();
+    },
+    onError: (error) => {
+      console.error('Erreur lors de la création de l\'utilisateur', error);
+      messageApi.error('Erreur lors de la création de l\'utilisateur');
+    }
+  });
+
+  // Mutation pour mettre à jour un utilisateur
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateUser }) => updateUser(id, data),
+    onSuccess: () => {
+      messageApi.success('Utilisateur mis à jour avec succès');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      handleCancel();
+    },
+    onError: (error) => {
+      console.error('Erreur lors de la mise à jour de l\'utilisateur', error);
+      messageApi.error('Erreur lors de la mise à jour de l\'utilisateur');
+    }
+  });
+
+  // Mutation pour supprimer un utilisateur
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      messageApi.success('Utilisateur supprimé avec succès');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('Erreur lors de la suppression de l\'utilisateur', error);
+      messageApi.error('Erreur lors de la suppression de l\'utilisateur');
+    }
+  });
+
+  // Mutation pour réinitialiser le mot de passe
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { password: string } }) => 
+      updateUser(id, { password: data.password }),
+    onSuccess: () => {
+      messageApi.success('Mot de passe réinitialisé avec succès');
+      setIsResetPasswordModalOpen(false);
+      resetPasswordForm.resetFields();
+    },
+    onError: (error) => {
+      console.error('Erreur lors de la réinitialisation du mot de passe', error);
+      messageApi.error('Erreur lors de la réinitialisation du mot de passe');
+    }
+  });
 
   const columns = [
     {
@@ -95,10 +120,10 @@ export default function Users() {
       dataIndex: 'prenom',
       key: 'prenom',
       sorter: (a: User, b: User) => a.prenom.localeCompare(b.prenom),
-      render: (text: string) => (
+      render: (_: string, record: User) => (
         <Space>
           <UserOutlined />
-          <span>{text}</span>
+          <span>{record.prenom} {record.nom}</span>
         </Space>
       )
     },
@@ -116,28 +141,31 @@ export default function Users() {
         { text: 'Manager', value: 'manager' },
         { text: 'Utilisateur', value: 'user' }
       ],
-      // Corriger la signature de onFilter pour être compatible avec Ant Design
       onFilter: (value: React.Key | boolean, record: User) => {
-        if (typeof value === 'string') {
+        if (typeof value === 'string' && record.role) {
           return record.role.includes(value);
         }
         return false;
       },
-      render: (role: string[]) => {
+      render: (role: string[] | undefined) => {
         if (!role || role.length === 0) return <Text>-</Text>;
         
         let color = '';
+        let text = '';
         switch (role[0]) {
           case 'admin':
             color = '#1890ff';
+            text = 'ADMIN';
             break;
           case 'manager':
             color = '#52c41a';
+            text = 'MANAGER';
             break;
           default:
             color = '#faad14';
+            text = 'UTILISATEUR';
         }
-        return <Text style={{ color }}>{role[0].toUpperCase()}</Text>;
+        return <Tag color={color}>{text}</Tag>;
       }
     },
     {
@@ -148,18 +176,14 @@ export default function Users() {
         { text: 'Actif', value: true },
         { text: 'Inactif', value: false }
       ],
-      // Corriger la signature de onFilter pour être compatible avec Ant Design
       onFilter: (value: React.Key | boolean, record: User) => {
         return record.isActif === (value === true || value === 'true');
       },
       render: (isActif: boolean) => {
         return (
-          <Text
-            type={isActif ? 'success' : 'danger'}
-            style={{ fontWeight: 'bold' }}
-          >
+          <Tag color={isActif ? 'success' : 'error'} style={{ fontWeight: 'bold' }}>
             {isActif ? 'ACTIF' : 'INACTIF'}
-          </Text>
+          </Tag>
         );
       }
     },
@@ -177,6 +201,13 @@ export default function Users() {
             Modifier
           </Button>
           <Button
+            icon={<KeyOutlined />}
+            size="small"
+            onClick={() => showResetPasswordModal(record)}
+          >
+            Mot de passe
+          </Button>
+          <Button
             danger
             icon={<DeleteOutlined />}
             size="small"
@@ -189,12 +220,12 @@ export default function Users() {
     },
   ];
 
-  const filteredUsers = users.filter(
-    user =>
+  const filteredUsers = users && Array.isArray(users) ? users.filter(
+    (user: User) =>
       user.prenom.toLowerCase().includes(searchText.toLowerCase()) ||
       user.nom.toLowerCase().includes(searchText.toLowerCase()) ||
       user.email.toLowerCase().includes(searchText.toLowerCase())
-  );
+  ) : [];
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchText(e.target.value);
@@ -208,7 +239,7 @@ export default function Users() {
   const handleCancel = () => {
     setIsModalOpen(false);
     setIsEditing(false);
-    setCurrentUser(defaultUser);
+    setCurrentUser(null);
     form.resetFields();
   };
 
@@ -219,10 +250,16 @@ export default function Users() {
       prenom: user.prenom,
       nom: user.nom,
       email: user.email,
-      role: user.role,
+      role: user.role && user.role.length > 0 ? user.role[0] : 'user',
       isActif: user.isActif
     });
     showModal();
+  };
+  
+  const showResetPasswordModal = (user: User) => {
+    setCurrentUser(user);
+    setIsResetPasswordModalOpen(true);
+    resetPasswordForm.resetFields();
   };
 
   const handleDelete = (id: string) => {
@@ -232,41 +269,51 @@ export default function Users() {
       okText: 'Oui',
       cancelText: 'Non',
       onOk: () => {
-        setUsers(prev => prev.filter(user => user._id !== id));
-        messageApi.success('Utilisateur supprimé avec succès');
+        deleteUserMutation.mutate(id);
       }
     });
   };
 
   const handleSubmit = () => {
     form.validateFields().then(values => {
-      if (isEditing) {
+      if (isEditing && currentUser && currentUser._id) {
         // Mise à jour d'un utilisateur existant
-        const updatedUser = {
-          ...currentUser,
-          ...values
+        const updateData: UpdateUser = {
+          prenom: values.prenom,
+          nom: values.nom,
+          email: values.email,
+          role: [values.role],
+          isActif: values.isActif === 'active'
         };
-        setUsers(prev =>
-          prev.map(user => (user._id === currentUser._id ? updatedUser : user))
-        );
-        messageApi.success('Utilisateur mis à jour avec succès');
+        updateUserMutation.mutate({ id: currentUser._id, data: updateData });
       } else {
         // Création d'un nouvel utilisateur
-        const newUser: User = {
-          id: Date.now().toString(),
-          ...values
+        const newUser: CreateUser = {
+          prenom: values.prenom,
+          nom: values.nom,
+          email: values.email,
+          password: values.password
         };
-        setUsers(prev => [...prev, newUser]);
-        messageApi.success('Utilisateur ajouté avec succès');
+        createUserMutation.mutate(newUser);
       }
-      handleCancel();
+    });
+  };
+  
+  const handleResetPassword = () => {
+    resetPasswordForm.validateFields().then(values => {
+      if (currentUser && currentUser._id) {
+        resetPasswordMutation.mutate({
+          id: currentUser._id,
+          data: { password: values.password }
+        });
+      }
     });
   };
 
   return (
     <Layout>
       {contextHolder}
-      <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      <Content style={{ padding: '24px' }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <Title level={2}>Gestion des Utilisateurs</Title>
@@ -285,14 +332,14 @@ export default function Users() {
             onChange={handleSearchChange}
             style={{ marginBottom: 16 }}
           />
-          {loading ? (
+          {isLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
               <Spin size="large" />
             </div>
           ) : (
             <Table
               columns={columns}
-              dataSource={filteredUsers}
+              dataSource={filteredUsers.filter(user => user._id !== id)}
               rowKey="_id"
               pagination={{
                 defaultPageSize: 10,
@@ -303,6 +350,7 @@ export default function Users() {
           )}
         </div>
 
+        {/* Modal d'ajout/modification d'utilisateur */}
         <Modal
           title={isEditing ? 'Modifier un utilisateur' : 'Ajouter un utilisateur'}
           open={isModalOpen}
@@ -310,6 +358,7 @@ export default function Users() {
           onCancel={handleCancel}
           okText={isEditing ? 'Mettre à jour' : 'Ajouter'}
           cancelText="Annuler"
+          confirmLoading={createUserMutation.isPending || updateUserMutation.isPending}
         >
           <Form
             form={form}
@@ -317,11 +366,19 @@ export default function Users() {
             initialValues={defaultUser}
           >
             <Form.Item
-              label="Nom d'utilisateur"
-              name="username"
-              rules={[{ required: true, message: 'Veuillez saisir un nom d\'utilisateur' }]}
+              label="Prénom"
+              name="prenom"
+              rules={[{ required: true, message: 'Veuillez saisir un prénom' }]}
             >
-              <Input prefix={<UserOutlined />} placeholder="Nom d'utilisateur" />
+              <Input placeholder="Prénom" />
+            </Form.Item>
+
+            <Form.Item
+              label="Nom"
+              name="nom"
+              rules={[{ required: true, message: 'Veuillez saisir un nom' }]}
+            >
+              <Input placeholder="Nom" />
             </Form.Item>
 
             <Form.Item
@@ -359,13 +416,62 @@ export default function Users() {
 
             <Form.Item
               label="Statut"
-              name="status"
+              name="isActif"
               rules={[{ required: true, message: 'Veuillez sélectionner un statut' }]}
             >
               <Select placeholder="Sélectionner un statut">
                 <Option value="active">Actif</Option>
                 <Option value="inactive">Inactif</Option>
               </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Modal de réinitialisation de mot de passe */}
+        <Modal
+          title="Réinitialiser le mot de passe"
+          open={isResetPasswordModalOpen}
+          onOk={handleResetPassword}
+          onCancel={() => {
+            setIsResetPasswordModalOpen(false);
+            resetPasswordForm.resetFields();
+          }}
+          okText="Réinitialiser"
+          cancelText="Annuler"
+          confirmLoading={resetPasswordMutation.isPending}
+        >
+          <Form
+            form={resetPasswordForm}
+            layout="vertical"
+          >
+            <Form.Item
+              label="Nouveau mot de passe"
+              name="password"
+              rules={[
+                { required: true, message: 'Veuillez saisir un nouveau mot de passe' },
+                { min: 6, message: 'Le mot de passe doit contenir au moins 6 caractères' }
+              ]}
+            >
+              <Input.Password prefix={<LockOutlined />} placeholder="Nouveau mot de passe" />
+            </Form.Item>
+
+            <Form.Item
+              label="Confirmer le mot de passe"
+              name="confirmPassword"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: 'Veuillez confirmer le mot de passe' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Les deux mots de passe ne correspondent pas'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password prefix={<LockOutlined />} placeholder="Confirmer le mot de passe" />
             </Form.Item>
           </Form>
         </Modal>

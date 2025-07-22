@@ -29,6 +29,12 @@ export const dossiersApi = api.extend((options) => ({prefixUrl: `${options.prefi
 
 export const payementsApi = api.extend((options) => ({prefixUrl: `${options.prefixUrl}/payement`}));
 
+export const allocationMaterielApi = api.extend((options) => ({prefixUrl: `${options.prefixUrl}/allocation`}));
+
+export const equipementsApi = api.extend((options) => ({prefixUrl: `${options.prefixUrl}/equipement`}));
+
+
+
 
 
 
