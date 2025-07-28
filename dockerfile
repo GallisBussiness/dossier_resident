@@ -15,7 +15,7 @@ RUN yarn
 COPY . .
 
 ENV VITE_API_URL=https://residentback.crousz.app
-ENV VITE_BACKURL_ETUDIANT=https://studentbackback.crousz.app
+ENV VITE_BACKURL_ETUDIANT=https://studentback.crousz.app
 
 RUN yarn build
 
