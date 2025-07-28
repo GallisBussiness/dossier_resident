@@ -85,7 +85,7 @@ export const generateDossierPDF = (
   // Définition du document PDF
   const docDefinition = {
     pageSize: 'A4',
-    pageMargins: [40, 60, 40, 60],
+    pageMargins: [40, 60, 40, 60] as [number, number, number, number],
     footer: {
       columns: [
         { text: 'Gestion des résidents universitaires', alignment: 'center', style: 'footer' },

@@ -280,7 +280,7 @@ export default function Campuses() {
   return (
     <Layout>
       {contextHolder}
-      <Content style={{ padding: '32px', maxWidth: 1200, margin: '0 auto' }}>
+      <Content style={{ padding: '32px' }}>
         <div className="page-header" style={{ 
           marginBottom: 32,
           background: 'linear-gradient(135deg, #1890ff 0%, #52c41a 100%)',

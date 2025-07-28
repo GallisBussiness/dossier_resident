@@ -415,7 +415,7 @@ export default function DossierDetail() {
             {etudiant ? (
               <Row gutter={[16, 16]} align="middle">
                 <Col xs={24} md={6}>
-                  <Avatar size={100} icon={<UserOutlined />} src={etudiant.avatar} style={{ backgroundColor: '#1890ff' }} />
+                  <Avatar size={100} icon={<UserOutlined />} src={`${import.meta.env.VITE_BACKURL_ETUDIANT}/${etudiant.avatar}`} style={{ backgroundColor: '#1890ff' }} />
                 </Col>
                 <Col xs={24} md={18}>
                   <Descriptions column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}>
