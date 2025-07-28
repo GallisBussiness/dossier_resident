@@ -14,7 +14,8 @@ import {
   Select,
   Switch,
   Row,
-  Col
+  Col,
+  Tabs
 } from 'antd';
 import {
   FileOutlined,
@@ -44,6 +45,7 @@ const { Title, Text } = Typography;
 
 export default function Dossiers() {
   const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab] = useState<string>('active');
   const [currentDossier, setCurrentDossier] = useState<Dossier | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -301,14 +303,25 @@ export default function Dossiers() {
     setSearchText(e.target.value.toLowerCase());
   };
 
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+  };
+
   const filteredDossiers = dossiers.filter(dossier => {
-    return dossier.numero.toLowerCase().includes(searchText) ||
-    (typeof dossier.anneeUniversitaireId === 'string' ? dossier.anneeUniversitaireId : dossier.anneeUniversitaireId.nom).toLowerCase().includes(searchText) ||
+    // Filtrer par statut actif/inactif
+    const matchesStatus = activeTab === 'active' ? dossier.active === true : dossier.active === false;
+    
+    // Filtrer par texte de recherche
+    const matchesSearch = 
+      dossier.numero.toLowerCase().includes(searchText) ||
+      (typeof dossier.anneeUniversitaireId === 'string' ? dossier.anneeUniversitaireId : dossier.anneeUniversitaireId.nom).toLowerCase().includes(searchText) ||
       dossier.etudiantId.toLowerCase().includes(searchText);
+    
+    return matchesStatus && matchesSearch;
   });
 
-
-
+  const activeDossiersCount = dossiers.filter(dossier => dossier.active === true).length;
+  const inactiveDossiersCount = dossiers.filter(dossier => dossier.active === false).length;
 
   return (
     <Layout>
@@ -343,16 +356,46 @@ export default function Dossiers() {
               <Spin size="large" />
             </div>
           ) : (
-            <Table
-              columns={columns}
-              dataSource={filteredDossiers}
-              rowKey="_id"
-              pagination={{
-                defaultPageSize: 10,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '20', '30']
-              }}
-            />
+            <>
+              <Tabs 
+                activeKey={activeTab} 
+                onChange={handleTabChange}
+                items={[
+                  { 
+                    key: 'active', 
+                    label: `Dossiers Actifs (${activeDossiersCount})`,
+                    children: (
+                      <Table
+                        columns={columns}
+                        dataSource={filteredDossiers}
+                        rowKey="_id"
+                        pagination={{
+                          defaultPageSize: 10,
+                          showSizeChanger: true,
+                          pageSizeOptions: ['10', '20', '30']
+                        }}
+                      />
+                    )
+                  },
+                  { 
+                    key: 'inactive', 
+                    label: `Dossiers Inactifs (${inactiveDossiersCount})`,
+                    children: (
+                      <Table
+                        columns={columns}
+                        dataSource={filteredDossiers}
+                        rowKey="_id"
+                        pagination={{
+                          defaultPageSize: 10,
+                          showSizeChanger: true,
+                          pageSizeOptions: ['10', '20', '30']
+                        }}
+                      />
+                    )
+                  },
+                ]}
+              />
+            </>
           )}
         </div>
         

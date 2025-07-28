@@ -5,8 +5,8 @@ import type { LoginUser } from "../types/user";
 import { useMutation } from "@tanstack/react-query";
 import { login } from "../services/user";
 import useSignIn from 'react-auth-kit/hooks/useSignIn';
-import { useState, useEffect } from 'react';
-
+import { useEffect } from 'react';
+import useAuth from 'react-auth-kit/hooks/useIsAuthenticated';
 
 const { Title, Text } = Typography;
 
@@ -14,15 +14,14 @@ export default function Login() {
   const navigate = useNavigate();
   const signIn = useSignIn();
   const [form] = Form.useForm();
-  const [isLoading, setIsLoading] = useState(true);
+  const isAuth = useAuth();
 
   // Animation to show content after initial loading
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    if (isAuth) {
+      navigate('/dashboard');
+    }
+  }, [isAuth, navigate]);
 
   const {mutate: loginMutation, isPending} = useMutation({
     mutationFn: login,
@@ -85,7 +84,7 @@ export default function Login() {
         pointerEvents: 'none'
       }} />
       
-      {isLoading ? (
+      {isPending ? (
         <div style={{ textAlign: 'center', color: 'white' }}>
           <Spin size="large" />
           <Text style={{ display: 'block', marginTop: 16, color: 'white' }}>Chargement...</Text>
@@ -100,8 +99,8 @@ export default function Login() {
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
             overflow: 'hidden',
             border: 'none',
-            opacity: isLoading ? 0 : 1,
-            transform: `translateY(${isLoading ? '20px' : '0'})`,
+            opacity: isPending ? 0 : 1,
+            transform: `translateY(${isPending ? '20px' : '0'})`,
             transition: 'opacity 0.5s ease, transform 0.5s ease'
           }}
           bodyStyle={{ padding: '40px' }}
@@ -167,7 +166,7 @@ export default function Login() {
             layout="vertical"
             size="large"
           >
-            <div style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.2s' }}>
+            <div style={{ opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.2s' }}>
               <Form.Item
                 name="username"
                 rules={[{ required: true, message: "Veuillez saisir votre email!" }]}
@@ -180,7 +179,7 @@ export default function Login() {
               </Form.Item>
             </div>
             
-            <div style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.3s' }}>
+            <div style={{ opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.3s' }}>
               <Form.Item
                 name="password"
                 rules={[{ required: true, message: "Veuillez saisir votre mot de passe!" }]}
@@ -198,7 +197,7 @@ export default function Login() {
                 display: 'flex', 
                 justifyContent: 'flex-end',
                 marginBottom: '24px',
-                opacity: isLoading ? 0 : 1, 
+                opacity: isPending ? 0 : 1, 
                 transition: 'opacity 0.5s ease 0.4s'
               }}
             >
@@ -207,7 +206,7 @@ export default function Login() {
               </a>
             </div>
 
-            <div style={{ opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.5s' }}>
+            <div style={{ opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.5s' }}>
               <Form.Item>
                 <Button 
                   type="primary" 
@@ -239,17 +238,17 @@ export default function Login() {
             </div>
           </Form>
           
-          <Divider style={{ margin: '24px 0 16px', opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.6s' }}>
+          <Divider style={{ margin: '24px 0 16px', opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.6s' }}>
             <Text type="secondary" style={{ fontSize: '14px' }}>ou</Text>
           </Divider>
           
-          <div style={{ textAlign: 'center', marginBottom: '16px', opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.7s' }}>
+          <div style={{ textAlign: 'center', marginBottom: '16px', opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.7s' }}>
             <Text type="secondary" style={{ fontSize: '14px' }}>
               Besoin d'aide? <a href="#" style={{ fontWeight: 500 }}>Contactez-nous</a>
             </Text>
           </div>
           
-          <div style={{ textAlign: 'center', fontSize: '14px', color: 'rgba(0, 0, 0, 0.45)', marginTop: '24px', opacity: isLoading ? 0 : 1, transition: 'opacity 0.5s ease 0.8s' }}>
+          <div style={{ textAlign: 'center', fontSize: '14px', color: 'rgba(0, 0, 0, 0.45)', marginTop: '24px', opacity: isPending ? 0 : 1, transition: 'opacity 0.5s ease 0.8s' }}>
             <p>© {new Date().getFullYear()} CROUS-RESIDENCE. Tous droits réservés.</p>
           </div>
         </Card>

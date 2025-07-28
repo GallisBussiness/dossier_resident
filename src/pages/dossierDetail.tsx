@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { generateDossierPDF } from '../utils/pdfGenerator';
 import {
   Layout,
@@ -44,18 +44,20 @@ import {
   PlusOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
-  ToolOutlined
+  ToolOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 import { getDossierById, deleteDossier } from '../services/dossier';
 import { getEtudiantByNcs } from '../services/etudiant';
 import { getPayementsByDossierId, createPayement, updatePayement, deletePayement } from '../services/payement';
 import { getAllocationDossierById, createAllocationMateriel, updateAllocationMateriel, deleteAllocationMateriel } from '../services/allocation';
 import type { Pavillon } from '../types/pavillon';
-import { Mois, PayementStatut } from '../types/payement';
+import { Mois } from '../types/payement';
 import type { Payement, CreatePayement, UpdatePayement } from '../types/payement';
-import { AllocationStatut } from '../types/allocation_materiel';
 import type { AllocationMateriel, CreateAllocationMateriel, UpdateAllocationMateriel } from '../types/allocation_materiel';
 import dayjs from 'dayjs';
+import { getEquipements } from '../services/equipement';
+import type { Equipement } from '../types/equipement';
 
 // Extend Payement interface to include _id property
 interface PayementWithId extends Payement {
@@ -85,12 +87,24 @@ export default function DossierDetail() {
   const [isAllocationModalVisible, setIsAllocationModalVisible] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<AllocationMaterielWithId | null>(null);
   const [allocationForm] = Form.useForm();
+  
+  // State for allocation detail modal
+  const [isViewAllocationModalVisible, setIsViewAllocationModalVisible] = useState(false);
+  const [viewingAllocation, setViewingAllocation] = useState<AllocationMaterielWithId | null>(null);
 
   // Fetch dossier data
   const { data: dossier, isLoading } = useQuery({
     queryKey: ['dossier', id],
     queryFn: () => id ? getDossierById(id) : Promise.reject('ID non fourni'),
     enabled: !!id
+  });
+
+  const { data: equipements } = useQuery({
+    queryKey: ['equipements'],
+    queryFn: async () => {
+      const response = await getEquipements();
+      return response.json();
+    }
   });
   
   // Fetch payments for this dossier
@@ -224,7 +238,6 @@ export default function DossierDetail() {
       montant: payment.montant,
       mois: payment.mois,
       numero_facture: payment.numero_facture,
-      statut: payment.statut
     });
     setIsPaymentModalVisible(true);
   };
@@ -249,58 +262,23 @@ export default function DossierDetail() {
   };
   
   // Handle allocation edit
+  const handleViewAllocation = (allocation: AllocationMaterielWithId) => {
+    setViewingAllocation(allocation);
+    setIsViewAllocationModalVisible(true);
+  };
+  
   const handleEditAllocation = (allocation: AllocationMaterielWithId) => {
     setEditingAllocation(allocation);
     allocationForm.setFieldsValue({
-      nom: allocation.nom,
+      equipementId: allocation.equipementId,
       nombre: allocation.nombre,
       description: allocation.description,
-      etat: allocation.etat,
+      constatation: allocation.constatation,
       date: dayjs(allocation.date)
     });
     setIsAllocationModalVisible(true);
   };
   
-  // Get allocation status color
-  const getAllocationStatusColor = (status: AllocationStatut) => {
-    switch (status) {
-      case AllocationStatut.NEUF:
-        return 'success';
-      case AllocationStatut.DETERIORE:
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
-
-  // Get payment status color
-  const getPaymentStatusColor = (status: PayementStatut) => {
-    switch (status) {
-      case PayementStatut.PAID:
-        return 'success';
-      case PayementStatut.PENDING:
-        return 'warning';
-      case PayementStatut.CANCELED:
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  // Calculate payment statistics
-  const paymentStats = useMemo(() => {
-    const total = payments.length;
-    const paid = payments.filter(p => p.statut === PayementStatut.PAID).length;
-    const pending = payments.filter(p => p.statut === PayementStatut.PENDING).length;
-    const canceled = payments.filter(p => p.statut === PayementStatut.CANCELED).length;
-    
-    const totalAmount = payments.reduce((sum, p) => sum + p.montant, 0);
-    const paidAmount = payments
-      .filter(p => p.statut === PayementStatut.PAID)
-      .reduce((sum, p) => sum + p.montant, 0);
-    
-    return { total, paid, pending, canceled, totalAmount, paidAmount };
-  }, [payments]);
   
 
   const handleDelete = () => {
@@ -327,7 +305,7 @@ export default function DossierDetail() {
     }
     
     // Générer le PDF avec l'utilitaire
-    const pdfDoc = generateDossierPDF(dossier, etudiant, payments, paymentStats);
+    const pdfDoc = generateDossierPDF(dossier, etudiant, payments);
     
     // Ouvrir le PDF dans une nouvelle fenêtre
     pdfDoc.open({}, window);
@@ -437,7 +415,7 @@ export default function DossierDetail() {
             {etudiant ? (
               <Row gutter={[16, 16]} align="middle">
                 <Col xs={24} md={6}>
-                  <Avatar size={100} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                  <Avatar size={100} icon={<UserOutlined />} src={etudiant.avatar} style={{ backgroundColor: '#1890ff' }} />
                 </Col>
                 <Col xs={24} md={18}>
                   <Descriptions column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}>
@@ -499,7 +477,6 @@ export default function DossierDetail() {
                     form.resetFields();
                     setIsPaymentModalVisible(true);
                   }}>Nouveau paiement</Button>}
-                  bordered={false}
                 >
             <Spin spinning={isLoadingPayments}>
               {payments.length > 0 ? (
@@ -520,16 +497,6 @@ export default function DossierDetail() {
                     title="N° Facture" 
                     dataIndex="numero_facture" 
                     key="numero_facture" 
-                  />
-                  <Table.Column 
-                    title="Statut" 
-                    dataIndex="statut" 
-                    key="statut"
-                    render={(statut) => (
-                      <Tag color={getPaymentStatusColor(statut)}>
-                        {statut}
-                      </Tag>
-                    )}
                   />
                   <Table.Column
                     title="Actions"
@@ -580,31 +547,19 @@ export default function DossierDetail() {
                     allocationForm.resetFields();
                     setIsAllocationModalVisible(true);
                   }}>Nouvelle allocation</Button>}
-                  bordered={false}
                 >
                   <Spin spinning={isLoadingAllocations}>
                     {allocations.length > 0 ? (
                       <Table
                         dataSource={allocations as AllocationMaterielWithId[]}
                         rowKey="_id"
-                        pagination={false}
                         size="small"
                       >
                         <Table.Column title="Date" dataIndex="date" key="date" 
                           render={(date) => new Date(date).toLocaleDateString('fr-FR')}
                         />
-                        <Table.Column title="Matériel" dataIndex="nom" key="nom" />
+                        <Table.Column title="Matériel" dataIndex="equipementId" key="equipementId" render={(equipementId) => equipementId.nom} />
                         <Table.Column title="Quantité" dataIndex="nombre" key="nombre" />
-                        <Table.Column 
-                          title="État" 
-                          dataIndex="etat" 
-                          key="etat"
-                          render={(etat) => (
-                            <Tag color={getAllocationStatusColor(etat)}>
-                              {etat}
-                            </Tag>
-                          )}
-                        />
                         <Table.Column 
                           title="Description" 
                           dataIndex="description" 
@@ -616,6 +571,11 @@ export default function DossierDetail() {
                           key="actions"
                           render={(_, record: AllocationMaterielWithId) => (
                             <Space>
+                              <Button 
+                                type="text" 
+                                icon={<EyeOutlined />} 
+                                onClick={() => handleViewAllocation(record)}
+                              />
                               <Button 
                                 type="text" 
                                 icon={<EditOutlined />} 
@@ -670,24 +630,6 @@ export default function DossierDetail() {
                   suffix="FCFA"
                   precision={0}
                   valueStyle={{ color: '#1890ff' }}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic 
-                  title="Payé" 
-                  value={paymentStats.paidAmount} 
-                  suffix="FCFA"
-                  precision={0}
-                  valueStyle={{ color: '#52c41a' }}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic 
-                  title="En attente" 
-                  value={paymentStats.totalAmount - paymentStats.paidAmount} 
-                  suffix="FCFA"
-                  precision={0}
-                  valueStyle={{ color: '#faad14' }}
                 />
               </Col>
               <Col span={24}>
@@ -763,7 +705,6 @@ export default function DossierDetail() {
           onFinish={handlePaymentSubmit}
           initialValues={{
             montant: dossier?.taux_loyer_mensuelle || 0,
-            statut: PayementStatut.PENDING
           }}
         >
           <Form.Item
@@ -792,20 +733,7 @@ export default function DossierDetail() {
             rules={[{ required: true, message: 'Veuillez saisir le numéro de facture' }]}
           >
             <Input />
-          </Form.Item>
-          
-          <Form.Item
-            name="statut"
-            label="Statut"
-            rules={[{ required: true, message: 'Veuillez sélectionner le statut' }]}
-          >
-            <Select>
-              {Object.values(PayementStatut).map(statut => (
-                <Select.Option key={statut} value={statut}>{statut}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          
+          </Form.Item>    
           <Form.Item>
             <div style={{ textAlign: 'right' }}>
               <Button style={{ marginRight: 8 }} onClick={() => {
@@ -839,16 +767,26 @@ export default function DossierDetail() {
           layout="vertical"
           onFinish={handleAllocationSubmit}
           initialValues={{
-            etat: AllocationStatut.NEUF,
+            constatation: 'NEUF',
             nombre: 1
           }}
         >
           <Form.Item
-            name="nom"
+            name="equipementId"
             label="Nom du matériel"
             rules={[{ required: true, message: 'Veuillez saisir le nom du matériel' }]}
           >
-            <Input />
+            <Select
+              showSearch
+              placeholder="Sélectionner un matériel"
+              optionFilterProp="children"
+            >
+              {equipements?.map((equipement) => (
+                <Select.Option key={equipement._id} value={equipement._id}>
+                  {equipement.nom}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
           
           <Form.Item
@@ -873,15 +811,11 @@ export default function DossierDetail() {
           </Form.Item>
           
           <Form.Item
-            name="etat"
-            label="État"
+            name="constatation"
+            label="Constatation"
             rules={[{ required: true, message: 'Veuillez sélectionner l\'état' }]}
           >
-            <Select>
-              {Object.values(AllocationStatut).map(etat => (
-                <Select.Option key={etat} value={etat}>{etat}</Select.Option>
-              ))}
-            </Select>
+            <Input.TextArea rows={3} />
           </Form.Item>
           
           <Form.Item>
@@ -901,6 +835,42 @@ export default function DossierDetail() {
         </Form>
       </Modal>
 
+      {/* Allocation Detail Modal */}
+      <Modal
+        title="Détail de l'allocation"
+        open={isViewAllocationModalVisible}
+        onCancel={() => {
+          setIsViewAllocationModalVisible(false);
+          setViewingAllocation(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setIsViewAllocationModalVisible(false);
+            setViewingAllocation(null);
+          }}>
+            Fermer
+          </Button>
+        ]}
+      >
+        {viewingAllocation && (
+          <Descriptions bordered column={1}>
+            <Descriptions.Item label="Équipement">
+              {(viewingAllocation.equipementId as unknown as Equipement).nom || 'N/A'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Quantité">{viewingAllocation.nombre}</Descriptions.Item>
+            <Descriptions.Item label="Date d'allocation">
+              {dayjs(viewingAllocation.date).format('DD/MM/YYYY')}
+            </Descriptions.Item>
+            <Descriptions.Item label="Description">
+              {viewingAllocation.description || 'Aucune description'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Constatation">
+              {viewingAllocation.constatation}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
+      
       {/* Add custom styles */}
       <style>{`
         .card-shadow {

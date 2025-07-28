@@ -15,7 +15,8 @@ import {
   LogoutOutlined,
   SettingOutlined,
   BellOutlined,
-  SearchOutlined
+  SearchOutlined,
+  ToolOutlined
 } from '@ant-design/icons';
 import Dossiers from '../pages/dossiers';
 import Chambres from '../pages/chambres';
@@ -28,7 +29,8 @@ import PavillonDetail from '../pages/pavillonDetail';
 import ChambreDetail from '../pages/chambreDetail';
 import Dashboard from '../pages/dashboard';
 import DossierDetail from '../pages/dossierDetail';
-
+import useSignOut from 'react-auth-kit/hooks/useSignOut';
+import Equipements from '../pages/equipements';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
@@ -40,6 +42,7 @@ export default function MainLayout() {
   
   const location = useLocation();
   const navigate = useNavigate();
+  const signOut = useSignOut();
   const { token } = theme.useToken();
   
   // Mettre à jour le titre et les breadcrumbs en fonction de la route active
@@ -75,6 +78,10 @@ export default function MainLayout() {
         title = 'Années Universitaires';
         crumbs.push({title: 'Années', path: '/dashboard/annee_universitaire'});
         break;
+      case 'equipements':
+        title = 'Gestion des Équipements';
+        crumbs.push({title: 'Équipements', path: '/dashboard/equipements'});
+        break;
     }
     
     setPageTitle(title);
@@ -105,9 +112,7 @@ export default function MainLayout() {
   // Fonction pour traiter les clics du menu utilisateur
   const handleUserMenuClick = ({ key }: { key: string }) => {
     if (key === 'logout') {
-      // Logique de déconnexion à implémenter
-      console.log('Déconnexion');
-      // Utiliser navigate pour la redirection (meilleure pratique React Router)
+      signOut();
       navigate('/');
     } else if (key === 'profile') {
       // Redirection vers la page de profil
@@ -234,6 +239,11 @@ export default function MainLayout() {
               icon: <CalendarOutlined />,
               label: <Link to="/dashboard/annee_universitaire">Année</Link>,
             },
+            {
+              key: '/dashboard/equipements',
+              icon: <ToolOutlined />,
+              label: <Link to="/dashboard/equipements">Équipements</Link>,
+            },
           ]}
         />
         <div 
@@ -249,7 +259,7 @@ export default function MainLayout() {
           }}
         >
           <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
-            © {new Date().getFullYear()} E-Campus
+            © {new Date().getFullYear()} DR/CROUSZ
           </Typography.Text>
         </div>
       </Sider>
@@ -406,6 +416,7 @@ export default function MainLayout() {
            <Route path='chambres' element={<Chambres />} />
            <Route path='chambreDetail/:id' element={<ChambreDetail />} />
            <Route path='annee_universitaire' element={<AnneeUniversitaire />} />
+           <Route path='equipements' element={<Equipements />} />
          </Routes>
         </Content>
       </Layout>

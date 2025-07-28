@@ -2,7 +2,6 @@ import pdfMake from "pdfmake";
 import type { Dossier } from "../types/dossier";
 import type { Etudiant } from "../types/etudiant";
 import type { Payement } from "../types/payement";
-import { PayementStatut } from "../types/payement";
 import { font } from '../vfs_fonts';
 import { drapeau } from "../drapeau";
 import { logo } from "../logo";
@@ -49,16 +48,6 @@ function formatDateLong(date: Date): string {
   return `${day} ${month} ${year}`;
 }
 
-// Interface pour les statistiques de paiement
-interface PaymentStats {
-  total: number;
-  paid: number;
-  pending: number;
-  canceled: number;
-  totalAmount: number;
-  paidAmount: number;
-}
-
 // Interface pour les informations de chambre
 interface ChambreInfo {
   nom: string;
@@ -78,7 +67,6 @@ export const generateDossierPDF = (
   dossier: Dossier,
   etudiant: Etudiant,
   payments: Payement[],
-  paymentStats: PaymentStats
 ) => {
   // Extraction des informations de la chambre
   const chambreInfo: ChambreInfo = typeof dossier.chambreId === 'string' 
@@ -95,7 +83,7 @@ export const generateDossierPDF = (
     : dossier.anneeUniversitaireId?.nom || 'Non spécifié';
   
   // Définition du document PDF
-  const docDefinition: unknown = {
+  const docDefinition = {
     pageSize: 'A4',
     pageMargins: [40, 60, 40, 60],
     footer: {
@@ -262,7 +250,6 @@ export const generateDossierPDF = (
             stack: [
               {text: `${(dossier.caution || 0).toLocaleString()} FCFA`, style: 'value-bold'},
               {text: `${(dossier.taux_loyer_mensuelle || 0).toLocaleString()} FCFA`, style: 'value'},
-              {text: `${paymentStats.paidAmount.toLocaleString()} FCFA`, style: 'value', color: '#52c41a'},
               {text: `${((dossier.taux_loyer_mensuelle || 0) * 12 + (dossier.caution || 0)).toLocaleString()} FCFA`, style: 'value-bold'},
             ]
           }
@@ -355,25 +342,18 @@ export const generateDossierPDF = (
       payments.length > 0 ? {
         style: 'tableExample',
         table: {
-          widths: ['25%', '25%', '25%', '25%'],
+          widths: ['33%', '33%', '34%'],
           headerRows: 1,
           body: [
             [
               {text: 'Mois', style: 'tableHeader'},
               {text: 'Montant', style: 'tableHeader'},
               {text: 'N° Facture', style: 'tableHeader'},
-              {text: 'Statut', style: 'tableHeader'}
             ],
             ...payments.map(payment => [
               {text: payment.mois, alignment: 'center'},
               {text: `${payment.montant.toLocaleString()} FCFA`, alignment: 'center'},
               {text: payment.numero_facture || 'N/A', alignment: 'center'},
-              {
-                text: payment.statut,
-                alignment: 'center',
-                color: payment.statut === PayementStatut.PAID ? '#52c41a' : 
-                       payment.statut === PayementStatut.PENDING ? '#faad14' : '#f5222d'
-              }
             ])
           ]
         },

@@ -1,12 +1,5 @@
 import type { Dossier } from "./dossier";
 
-
-export enum PayementStatut {
-    PENDING = 'PENDING',
-    PAID = 'PAID',
-    CANCELED = 'CANCELED'
-}
-
 export enum Mois {
     JANVIER = 'JANVIER',
     FEBRER = 'FEVRIER',
@@ -31,8 +24,6 @@ export interface Payement {
     mois:Mois;
 
     numero_facture:string;
-
-    statut:PayementStatut;
 }
 
 export interface CreatePayement {
@@ -43,8 +34,6 @@ export interface CreatePayement {
     mois:Mois;
 
     numero_facture:string;
-
-    statut:PayementStatut;
 }
 
 export interface UpdatePayement {
@@ -55,7 +44,5 @@ export interface UpdatePayement {
     mois?:Mois;
 
     numero_facture?:string;
-
-    statut?:PayementStatut;
 }
 
