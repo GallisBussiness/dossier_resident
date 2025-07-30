@@ -5,12 +5,14 @@ export interface Chambre {
     nom:string;
     pavillonId:Pavillon | string;
     places:number;
+    anneeUniversitaireId?: string;
 }
 
 export interface CreateChambre {
     nom:string;
     pavillonId:string;
     places?:number;
+    anneeUniversitaireId?: string;
 }   
 
 export interface UpdateChambre {
@@ -18,5 +20,6 @@ export interface UpdateChambre {
     nom?:string;
     pavillonId?:string;
     places?:number;
+    anneeUniversitaireId?: string;
 }
     

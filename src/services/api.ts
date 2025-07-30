@@ -9,6 +9,14 @@ const api = ky.create({prefixUrl: import.meta.env.VITE_API_URL,
 				request.headers.set('Authorization', `Bearer ${token}`);
                 }
 			}
+		],
+		afterResponse: [
+			async (_, __, response) => {
+				if (response.status === 440) {
+					localStorage.removeItem('resident_auth');
+					window.location.href = '/';
+				}
+			}
 		]
 	}
 });

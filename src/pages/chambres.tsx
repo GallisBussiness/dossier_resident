@@ -33,6 +33,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createChambre, updateChambre, deleteChambre } from '../services/chambre';
 import type { Pavillon } from '../types/pavillon';
 import { getPavillons } from '../services/pavillon';
+import { getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -50,14 +51,23 @@ export default function Chambres() {
 
   const queryClient = useQueryClient();
 
+  const { data: activeAnnee } = useQuery({
+    queryKey: ['activeAnnee'],
+    queryFn: getAnneeUniversitaireActive,
+  });
+
+
   const { data: chambresData } = useQuery({
     queryKey: ['chambres'],
-    queryFn: getChambres,
+    queryFn: () => getChambres(activeAnnee?._id || ''),
+    enabled: !!activeAnnee,
   });
+
 
   const { data: pavilionsData } = useQuery({
     queryKey: ['pavilions'],
-    queryFn: getPavillons,
+    queryFn: () => getPavillons(activeAnnee?._id || ''),
+    enabled: !!activeAnnee,
   });
 
   const { mutate: createChambreMutation } = useMutation({
@@ -262,7 +272,7 @@ export default function Chambres() {
       if (isEditing && currentChambre) {
         updateChambreMutation({ ...values, _id: currentChambre._id,places: +values.places});
       } else {
-        createChambreMutation({ ...values,places: +values.places});
+        createChambreMutation({ ...values,anneeUniversitaireId: activeAnnee?._id,places: +values.places});
       }
       handleCancel();
     });

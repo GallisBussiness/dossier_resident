@@ -2,8 +2,8 @@ import { campusApi } from "./api";
 import type { CreateCampus, UpdateCampus } from "../types/campus";
 import type { Campus } from "../types/campus";
 
-export const getCampus = async (): Promise<Campus[]> => {
-    return await campusApi.get('').json();
+export const getCampus = async (anneeUniversitaireId: string): Promise<Campus[]> => {
+    return await campusApi.get(`annee-universitaire/${anneeUniversitaireId}`).json();
 }
 
 export const getCampusById = async (id: string): Promise<Campus> => {

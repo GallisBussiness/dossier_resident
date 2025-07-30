@@ -1,8 +1,8 @@
 import { chambresApi } from "./api";
 import type { Chambre } from "../types/chambre";
 
-export const getChambres = async (): Promise<Chambre[]> => {
-    return await chambresApi.get('').json();
+export const getChambres = async (anneeUniversitaireId: string): Promise<Chambre[]> => {
+    return await chambresApi.get(`annee-universitaire/${anneeUniversitaireId}`).json();
 }
 
 export const getChambreById = async (id: string): Promise<Chambre> => {

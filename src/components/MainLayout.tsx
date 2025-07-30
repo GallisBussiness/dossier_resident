@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout, Menu, Button, theme, Avatar, Typography, Dropdown, Badge, Tooltip, Breadcrumb, Input } from 'antd';
 import type { MenuProps } from 'antd';
 import { Link, useLocation, Route, Routes, useNavigate } from 'react-router';
-import {
+  import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   DashboardOutlined,
@@ -31,6 +31,8 @@ import Dashboard from '../pages/dashboard';
 import DossierDetail from '../pages/dossierDetail';
 import useSignOut from 'react-auth-kit/hooks/useSignOut';
 import Equipements from '../pages/equipements';
+import { getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
+import { useQuery } from '@tanstack/react-query';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
@@ -44,6 +46,11 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const { token } = theme.useToken();
+
+  const { data: activeAnnee } = useQuery({
+    queryKey: ['activeAnnee'],
+    queryFn: getAnneeUniversitaireActive
+  });  
   
   // Mettre à jour le titre et les breadcrumbs en fonction de la route active
   useEffect(() => {
@@ -195,6 +202,9 @@ export default function MainLayout() {
               DR/CROUSZ
             </Typography.Title>
           )}
+        </div>
+        <div className=" text-sm font-bold text-center text-gray-500">
+         {activeAnnee?.nom}
         </div>
         <Menu
           mode="inline"

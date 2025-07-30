@@ -13,3 +13,8 @@ export interface UpdateAnneeUniversitaire {
     nom?:string;
     isActif?:boolean;
 }
+
+export interface Importations {
+    anneeFrom:string;
+    anneeTo:string;
+}

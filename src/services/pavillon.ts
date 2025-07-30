@@ -1,8 +1,8 @@
 import { pavilionsApi } from "./api";
 import type { CreatePavillon, Pavillon, UpdatePavillon } from "../types/pavillon";
 
-export const getPavillons = async (): Promise<Pavillon[]> => {
-    return await pavilionsApi.get('').json();
+export const getPavillons = async (anneeUniversitaireId: string): Promise<Pavillon[]> => {
+    return await pavilionsApi.get(`annee-universitaire/${anneeUniversitaireId}`).json();
 }
 
 export const getPavillonById = async (id: string): Promise<Pavillon> => {

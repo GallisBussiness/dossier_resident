@@ -29,6 +29,7 @@ import { getPavillons, createPavillon, updatePavillon, deletePavillon } from '..
 import { getCampus } from '../services/campus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Campus } from '../types/campus';
+import { getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -45,14 +46,21 @@ export default function Pavilions() {
 
   const queryClient = useQueryClient();
 
+  const { data: activeAnnee } = useQuery({
+    queryKey: ['activeAnnee'],
+    queryFn: getAnneeUniversitaireActive,
+  });
+
   const { data: campusesData, isLoading } = useQuery({
     queryKey: ['campuses'],
-    queryFn: getCampus,
+    queryFn: () => getCampus(activeAnnee?._id || ''),
+    enabled: !!activeAnnee,
   });
 
   const { data: pavilionsData } = useQuery({
     queryKey: ['pavilions'],
-    queryFn: getPavillons,
+    queryFn: () => getPavillons(activeAnnee?._id || ''),
+    enabled: !!activeAnnee,
   });
 
   const { mutate: createPavillonMutation } = useMutation({
@@ -212,7 +220,7 @@ export default function Pavilions() {
         updatePavillonMutation({ ...values, _id: currentPavillon._id });
       } else {
         // Création d'un nouveau pavillon
-        createPavillonMutation(values);
+        createPavillonMutation({ ...values,anneeUniversitaireId: activeAnnee?._id });
       }
       handleCancel();
     });

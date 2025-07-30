@@ -4,6 +4,7 @@ export interface CreatePavillon {
     nom:string;
     campusId:string;
     description?:string;
+    anneeUniversitaireId?: string;
 }
 
 export interface UpdatePavillon {
@@ -11,6 +12,7 @@ export interface UpdatePavillon {
     nom?:string;
     campusId?:string;
     description?:string;    
+    anneeUniversitaireId?: string;
 }
 
 export interface Pavillon {
@@ -18,4 +20,5 @@ export interface Pavillon {
     nom: string;
     campusId: Campus;
     description?: string;
+    anneeUniversitaireId?: string;
 }

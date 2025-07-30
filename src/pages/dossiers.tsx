@@ -32,11 +32,10 @@ import {
 import type { Dossier, CreateDossier, UpdateDossier } from '../types/dossier';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDossiers, createDossier, updateDossier, deleteDossier } from '../services/dossier';
-import { getAnneeUniversitaires, getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
+import { getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
 import type { Chambre } from '../types/chambre';
 import { getChambres } from '../services/chambre';
 import { getEtudiants } from '../services/etudiant';
-import type { AnneeUniversitaire } from '../types/annee_universitaire';
 import type { Etudiant } from '../types/etudiant';
 import { useNavigate } from 'react-router';
 
@@ -64,13 +63,8 @@ export default function Dossiers() {
   
   // Fetch années universitaires for form
   const { data: anneeUniversitaireActive} = useQuery({
-    queryKey: ['anneeUniversitaireActive'],
+    queryKey: ['activeAnnee'],
     queryFn: getAnneeUniversitaireActive
-  });
-
-  const { data: anneeUniversitaires} = useQuery({
-    queryKey: ['anneeUniversitaires'],
-    queryFn: getAnneeUniversitaires
   });
 
 
@@ -82,7 +76,8 @@ export default function Dossiers() {
   // Fetch chambres for form
   const { data: chambres = [] } = useQuery({
     queryKey: ['chambres'],
-    queryFn: getChambres
+    queryFn: () => getChambres(anneeUniversitaireActive?._id || ''),
+    enabled: !!anneeUniversitaireActive,
   });
   
   // Mutations
@@ -136,7 +131,6 @@ export default function Dossiers() {
   const showCreateModal = () => {
     setIsEditing(false);
     form.resetFields();
-    form.setFieldValue('anneeUniversitaireId', anneeUniversitaireActive?._id);
     setIsModalOpen(true);
   };
 
@@ -161,7 +155,7 @@ export default function Dossiers() {
       if (isEditing && currentDossier) {
         updateDossierMutation({ ...values, _id: currentDossier._id } as UpdateDossier);
       } else {
-        createDossierMutation(values);
+        createDossierMutation({ ...values, anneeUniversitaireId: anneeUniversitaireActive?._id } as CreateDossier);
       }
     });
   };
@@ -435,15 +429,6 @@ export default function Dossiers() {
             </Row>
             
             <Row gutter={16}>
-              <Col span={12}>
-              <Form.Item
-                  label="Année Universitaire"
-                  name="anneeUniversitaireId"
-                  rules={[{ required: true, message: 'Veuillez sélectionner une année universitaire' }]}
-                >
-                 <Select options={anneeUniversitaires?.filter((annee: AnneeUniversitaire) => annee.isActif).map((annee: AnneeUniversitaire) => ({ value: annee._id, label: annee.nom }))} />
-                </Form.Item>
-              </Col>
               <Col span={12}>
                 <Form.Item
                   label="Statut"

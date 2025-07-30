@@ -156,6 +156,8 @@ export default function Dashboard() {
     enabled: !!selectedAnneeId
   });
 
+  console.log(stats);
+
 
 
 

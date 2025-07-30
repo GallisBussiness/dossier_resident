@@ -1,5 +1,5 @@
 import { anneeUniversitaireApi } from "./api";
-import type { AnneeUniversitaire } from "../types/annee_universitaire";
+import type { AnneeUniversitaire, Importations } from "../types/annee_universitaire";
 import type { Statistiques } from "../types/statistiques";
 
 export const getAnneeUniversitaires = async (): Promise<AnneeUniversitaire[]> => {
@@ -16,6 +16,10 @@ export const getAnneeUniversitaireById = async (id: string): Promise<AnneeUniver
 
 export const createAnneeUniversitaire = async (data: AnneeUniversitaire): Promise<AnneeUniversitaire> => {
     return await anneeUniversitaireApi.post('', { json: data }).json();
+}
+
+export const Import = async (data: Importations) => {
+    return await anneeUniversitaireApi.post('import', { json: data }).json();
 }
 
 export const updateAnneeUniversitaire = async ({_id, ...data}: AnneeUniversitaire): Promise<AnneeUniversitaire> => {

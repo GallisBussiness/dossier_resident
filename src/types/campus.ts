@@ -4,6 +4,7 @@ export interface Campus {
     adresse?:string;
     latitude?:string;
     longitude?:string;
+    anneeUniversitaireId?: string;
 }
 
 export interface CreateCampus {
@@ -11,6 +12,7 @@ export interface CreateCampus {
     adresse?:string;
     latitude?:string;
     longitude?:string;
+    anneeUniversitaireId?: string;
 }
 
 export interface UpdateCampus {
@@ -19,4 +21,5 @@ export interface UpdateCampus {
     adresse?:string;
     latitude?:string;
     longitude?:string;
+    anneeUniversitaireId?: string;
 }

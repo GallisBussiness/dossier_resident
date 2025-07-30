@@ -15,7 +15,8 @@ import {
   Col,
   Space,
   Switch,
-  Empty
+  Empty,
+  Select
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,10 +24,11 @@ import {
   DeleteOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
+  ImportOutlined
 } from '@ant-design/icons';
-import type { AnneeUniversitaire } from '../types/annee_universitaire';
+import type { AnneeUniversitaire, Importations } from '../types/annee_universitaire';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAnneeUniversitaires, updateAnneeUniversitaire, deleteAnneeUniversitaire, createAnneeUniversitaire } from '../services/anneeUniversitaire';
+import { getAnneeUniversitaires, updateAnneeUniversitaire, deleteAnneeUniversitaire, createAnneeUniversitaire, Import } from '../services/anneeUniversitaire';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -34,7 +36,9 @@ const { Title, Text } = Typography;
 export default function AnneeUniversitaire() {
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [form] = Form.useForm<AnneeUniversitaire>();
+  const [importForm] = Form.useForm<Importations>();
   const [currentAnnee, setCurrentAnnee] = useState<AnneeUniversitaire | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
@@ -50,10 +54,25 @@ export default function AnneeUniversitaire() {
     onSuccess: () => {
       messageApi.success('Année universitaire mise à jour avec succès');
       queryClient.invalidateQueries({ queryKey: ['annees'] });
+      queryClient.invalidateQueries({ queryKey: ['activeAnnee'] });
     },
     onError: (e) => {
       console.error(e);
       messageApi.error('Erreur lors de la mise à jour de l\'année universitaire');
+    }
+  });
+
+  const {mutate: importAnneeUniversitaireMutation} = useMutation({
+    mutationFn: Import,
+    onSuccess: () => {
+      messageApi.success('Année universitaire importée avec succès');
+      queryClient.invalidateQueries({ queryKey: ['campuses'] });
+      queryClient.invalidateQueries({ queryKey: ['pavilions'] });
+      queryClient.invalidateQueries({ queryKey: ['chambres'] });
+    },
+    onError: (e) => {
+      console.error(e);
+      messageApi.error('Erreur lors de l\'importation de l\'année universitaire');
     }
   });
 
@@ -62,6 +81,7 @@ export default function AnneeUniversitaire() {
     onSuccess: () => {
       messageApi.success('Année universitaire supprimée avec succès');
       queryClient.invalidateQueries({ queryKey: ['annees'] });
+      queryClient.invalidateQueries({ queryKey: ['activeAnnee'] });
     },
     onError: () => {
       messageApi.error('Erreur lors de la suppression de l\'année universitaire');
@@ -73,7 +93,8 @@ export default function AnneeUniversitaire() {
     onSuccess: () => {
       messageApi.success('Année universitaire créée avec succès');
       queryClient.invalidateQueries({ queryKey: ['annees'] });
-      },
+      queryClient.invalidateQueries({ queryKey: ['activeAnnee'] });
+    },
     onError: () => {
       messageApi.error('Erreur lors de la création de l\'année universitaire');
     }
@@ -129,6 +150,14 @@ export default function AnneeUniversitaire() {
         <Space size="middle">
           <Button
             type="primary"
+            icon={<ImportOutlined />}
+            size="small"
+            onClick={() => handleImportModalOpen()}
+          >
+            Importer
+          </Button>
+          <Button
+            type="primary"
             icon={<EditOutlined />}
             size="small"
             onClick={() => handleEdit(record)}
@@ -160,10 +189,40 @@ export default function AnneeUniversitaire() {
 
   const handleCancel = () => {
     setIsModalOpen(false);
-    setIsEditing(false);
-    setCurrentAnnee(null);
     form.resetFields();
+    setCurrentAnnee(null);
+    setIsEditing(false);
   };
+
+  const handleImportModalOpen = () => {
+    setIsImportModalOpen(true);
+    importForm.resetFields();
+  };
+
+  const handleImportModalCancel = () => {
+    setIsImportModalOpen(false);
+    importForm.resetFields();
+  };
+
+  const handleImportSubmit = () => {
+    importForm.validateFields().then(values => {
+      const { anneeFrom, anneeTo } = values;
+      if (!anneeFrom || !anneeTo) {
+        messageApi.error('Veuillez sélectionner une année source et une année destination');
+        return;
+      }
+      else if(anneeFrom === anneeTo){
+        messageApi.error('L\'année source et l\'année destination doivent être différentes');
+        return;
+      }
+      importAnneeUniversitaireMutation(values);
+      setIsImportModalOpen(false);
+      importForm.resetFields();
+    }).catch(info => {
+      console.log('Validate Failed:', info);
+    });
+  };
+
 
   const handleEdit = (annee: AnneeUniversitaire) => {
     setCurrentAnnee(annee);
@@ -337,25 +396,43 @@ export default function AnneeUniversitaire() {
               onChange={handleSearchChange}
               size="large"
             />
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setIsEditing(false);
-                setIsModalOpen(true);
-              }}
-              style={{ 
-                borderRadius: '8px',
-                height: '40px',
-                boxShadow: '0 2px 6px rgba(24, 144, 255, 0.3)',
-                background: 'linear-gradient(90deg, #1890ff 0%, #40a9ff 100%)',
-                border: 'none',
-                transition: 'all 0.3s ease'
-              }}
-              size="large"
-            >
-              Ajouter une année universitaire
-            </Button>
+            <Space>
+              <Button
+                icon={<ImportOutlined />}
+                onClick={handleImportModalOpen}
+                style={{ 
+                  borderRadius: '8px',
+                  height: '40px',
+                  boxShadow: '0 2px 6px rgba(19, 194, 194, 0.3)',
+                  background: 'linear-gradient(90deg, #13c2c2 0%, #36cfc9 100%)',
+                  border: 'none',
+                  color: 'white',
+                  transition: 'all 0.3s ease'
+                }}
+                size="large"
+              >
+                Importer des données
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setIsEditing(false);
+                  setIsModalOpen(true);
+                }}
+                style={{ 
+                  borderRadius: '8px',
+                  height: '40px',
+                  boxShadow: '0 2px 6px rgba(24, 144, 255, 0.3)',
+                  background: 'linear-gradient(90deg, #1890ff 0%, #40a9ff 100%)',
+                  border: 'none',
+                  transition: 'all 0.3s ease'
+                }}
+                size="large"
+              >
+                Ajouter une année universitaire
+              </Button>
+            </Space>
           </div>
           {anneesLoading ? (
             <div style={{ 
@@ -479,6 +556,88 @@ export default function AnneeUniversitaire() {
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* Modal d'importation */}
+        <Modal
+          title={
+            <span style={{ fontSize: '18px', fontWeight: 600 }}>
+              Importation de données
+            </span>
+          }
+          open={isImportModalOpen}
+          onCancel={handleImportModalCancel}
+          width={500}
+          centered
+          bodyStyle={{ padding: '24px' }}
+          style={{ borderRadius: '12px', overflow: 'hidden' }}
+          maskStyle={{ backdropFilter: 'blur(2px)', background: 'rgba(0, 0, 0, 0.45)' }}
+          footer={[
+            <Button 
+              key="cancel" 
+              onClick={handleImportModalCancel}
+              style={{ borderRadius: '6px' }}
+              size="large"
+            >
+              Annuler
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              onClick={handleImportSubmit}
+              style={{ 
+                borderRadius: '6px',
+                background: 'linear-gradient(90deg, #13c2c2 0%, #36cfc9 100%)',
+                boxShadow: '0 2px 6px rgba(19, 194, 194, 0.3)',
+                border: 'none'
+              }}
+              size="large"
+            >
+              Importer
+            </Button>,
+          ]}
+        >
+          <Form
+            form={importForm}
+            layout="vertical"
+          >
+            <Form.Item
+              label="Année source"
+              name="anneeFrom"
+              rules={[{ required: true, message: 'Veuillez sélectionner l\'année source' }]}
+            >
+              <Select
+                placeholder="Sélectionnez l'année source"
+                style={{ borderRadius: '6px', height: '40px' }}
+                options={anneesData?.map(annee => ({
+                  value: annee._id,
+                  label: annee.nom
+                }))}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Année destination"
+              name="anneeTo"
+              rules={[{ required: true, message: 'Veuillez sélectionner l\'année destination' }]}
+            >
+              <Select
+                placeholder="Sélectionnez l'année destination"
+                style={{ borderRadius: '6px', height: '40px' }}
+                options={anneesData?.map(annee => ({
+                  value: annee._id,
+                  label: annee.nom
+                }))}
+              />
+            </Form.Item>
+
+            <div style={{ background: '#f6ffed', padding: '12px 16px', borderRadius: '6px', marginBottom: '16px', border: '1px solid #b7eb8f' }}>
+              <Text style={{ fontSize: '14px', color: '#52c41a', display: 'flex', alignItems: 'center' }}>
+                <CheckCircleOutlined style={{ marginRight: '8px' }} />
+                L'importation copiera toutes les structures (campus, pavillons et chambres) de l'année source vers l'année destination.
+              </Text>
+            </div>
+          </Form>
+        </Modal>
       </Content>
       <style>{`
         .ant-table-thead > tr > th {
@@ -513,3 +672,4 @@ export default function AnneeUniversitaire() {
     </Layout>
   );
 }
+

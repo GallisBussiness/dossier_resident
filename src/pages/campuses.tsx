@@ -29,6 +29,7 @@ import {
 import type { Campus } from '../types/campus';
 import { getCampus, createCampus, updateCampus, deleteCampus } from '../services/campus';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAnneeUniversitaireActive } from '../services/anneeUniversitaire';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -43,10 +44,18 @@ export default function Campuses() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const { data: activeAnnee } = useQuery({
+    queryKey: ['activeAnnee'],
+    queryFn: getAnneeUniversitaireActive,
+  });
+
+
   const { data: campusesData, isLoading } = useQuery({
     queryKey: ['campuses'],
-    queryFn: getCampus,
+    queryFn: () => getCampus(activeAnnee?._id || ''),
+    enabled: !!activeAnnee,
   });
+
 
   const { mutate: createCampusMutation } = useMutation({
     mutationFn: createCampus,
@@ -251,7 +260,7 @@ export default function Campuses() {
           updateCampusMutation({ ...values, _id: currentCampus._id });
         } else if (!isEditing && !currentCampus?._id) {
           // Création d'un nouveau campus
-          createCampusMutation(values);
+          createCampusMutation({ ...values, anneeUniversitaireId: activeAnnee?._id });
         }
         handleCancel();
       } catch (error) {
